@@ -206,3 +206,4 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 dados/chroma_db/
+*/dados/chroma_db/
