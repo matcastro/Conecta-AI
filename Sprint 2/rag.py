@@ -1,3 +1,4 @@
+from itertools import chain
 from typing import Any
 import dotenv
 import bd
@@ -79,6 +80,40 @@ Reescreva a seguinte pergunta:
         | RunnableParallel(
             pergunta=RunnablePassthrough(), 
             documentos=retriever
+        )
+    )
+
+def elimina_duplicatas(documentos: list[Document]) -> list[Document]:
+    vistos = set()
+    resultado = []
+    for doc in documentos:
+        if doc.page_content not in vistos:
+            resultado.append(doc)
+            vistos.add(doc.page_content)
+
+    return resultado
+
+def multi_query_retriever_strategy() -> Runnable:
+    prompt_multi_query = PromptTemplate(
+        input_variables=["pergunta"],
+        template='''
+Você é um especialista no Código de Defesa do Consumidor (CDC) e na Lei Geral de Proteção de Dados (LGPD).
+Sua tarefa é gerar 3 variações da pergunta do usuário, mantendo o mesmo significado, mas utilizando palavras e estruturas diferentes. 
+O objetivo é aumentar a diversidade de documentos recuperados, melhorando as chances de encontrar informações relevantes sobre o CDC ou a LGPD.
+Se a pergunta não estiver relacionada ao CDC ou à LGPD, reescreva-a de forma a indicar que o assistente só pode responder perguntas sobre esses temas.
+
+**Retorne somente as 3 variações da pergunta, separadas por linha, sem explicações adicionais.**
+Gere variações para a seguinte pergunta:
+{pergunta}
+'''
+    )
+
+    return (
+        (lambda pergunta: {"pergunta": pergunta})
+        | RunnablePassthrough.assign(novas_perguntas=prompt_multi_query | llm | StrOutputParser() | (lambda resposta: resposta.split('\n')))
+        | RunnableParallel(
+            pergunta=lambda payload: payload['pergunta'], 
+            documentos=lambda payload: elimina_duplicatas(chain.from_iterable([retriever.invoke(pergunta) for pergunta in payload['novas_perguntas']]))
         )
     )
 
