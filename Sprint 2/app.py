@@ -18,7 +18,7 @@ def inicia_chat():
     prompt = efetua_pergunta()
     
     while prompt.strip().lower() != 'sair':
-        resposta = rag.executa_prompt(prompt)
+        resposta = rag.executa_prompt(prompt, query_strategy=rag.rewrite_retrieve_read_strategy)
         # resposta = rag.executa_prompt_reranking(prompt)
 
         print(f'\n# RESPOSTA\n{resposta["resultado"]}\n')

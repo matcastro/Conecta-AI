@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
+from langchain_core.runnables import Runnable, RunnablePassthrough, RunnableLambda, RunnableParallel
 
 def monta_resposta_com_fontes(completion: str, documentos: list[Document]) -> dict[str, Any]:
     resposta = {
@@ -49,19 +49,49 @@ rag_prompt = ChatPromptTemplate.from_messages([
     )
 ])
 
-pesquisa_documentos = RunnableParallel(pergunta=RunnablePassthrough(), documentos=retriever)
 monta_contexto = RunnablePassthrough.assign(contexto=lambda payload: gera_contexto_de_documentos(payload['documentos']))
-executa_prompt = RunnablePassthrough.assign(resposta=RunnablePassthrough() | rag_prompt | llm | StrOutputParser())
-monta_resposta = RunnableLambda(lambda payload: monta_resposta_com_fontes(payload['resposta'], payload['documentos']))
+invoca_llm = RunnablePassthrough.assign(resposta=RunnablePassthrough() | rag_prompt | llm | StrOutputParser())
+monta_resultado = RunnableLambda(lambda payload: monta_resposta_com_fontes(payload['resposta'], payload['documentos']))
 
-llm_com_rag = (
-    pesquisa_documentos # {pergunta: str, documentos: list[Document]}
-    | monta_contexto # {pergunta: str, documentos: list[Document], contexto: str}
-    | executa_prompt # {pergunta: str, documentos: list[Document], contexto: str, resposta: str}
-    | monta_resposta # {resultado: str, fontes: list[str]}
-)
+def retriever_padrao_strategy() -> RunnableParallel:
+    return RunnableParallel(pergunta=RunnablePassthrough(), documentos=retriever)
 
-def executa_prompt(prompt: str) -> dict[str, Any]:
+def rewrite_retrieve_read_strategy() -> Runnable:
+    prompt_rewrite = PromptTemplate(
+        input_variables=["pergunta"],
+        template='''
+Você é um especialista no Código de Defesa do Consumidor (CDC) e na Lei Geral de Proteção de Dados (LGPD).
+Sua tarefa é reescrever a pergunta do usuário para torná-la mais clara e específica, facilitando a recuperação de informações relevantes sobre o CDC ou a LGPD.
+Se a pergunta já for clara e específica, mantenha seu conteúdo, mas reescreva-a de forma mais formal e objetiva.
+Se a pergunta não estiver relacionada ao CDC ou à LGPD, reescreva-a de forma a indicar que o assistente só pode responder perguntas sobre esses temas.
+
+**Retorne somente a pergunta reescrita, sem explicações adicionais.**
+Reescreva a seguinte pergunta:
+{pergunta}
+'''
+    )
+
+    return (
+        (lambda pergunta: {"pergunta": pergunta})
+        | prompt_rewrite
+        | llm
+        | StrOutputParser()
+        | RunnableParallel(
+            pergunta=RunnablePassthrough(), 
+            documentos=retriever
+        )
+    )
+
+def executa_prompt(prompt: str, query_strategy: callable = retriever_padrao_strategy) -> dict[str, Any]:
+    pesquisa_documentos = query_strategy()
+
+    llm_com_rag = (
+        pesquisa_documentos # {pergunta: str, documentos: list[Document]}
+        | monta_contexto # {pergunta: str, documentos: list[Document], contexto: str}
+        | invoca_llm # {pergunta: str, documentos: list[Document], contexto: str, resposta: str}
+        | monta_resultado # {resultado: str, fontes: list[str]}
+    )
+
     return llm_com_rag.invoke(prompt)
 
 ####
@@ -127,7 +157,7 @@ Contexto: {contexto}
         | (lambda payload: {'prompt': payload["prompt"], 'documentos': payload["documentos"][:4]})
         | RunnablePassthrough.assign(contexto=lambda payload: gera_contexto_de_documentos(payload["documentos"]))
         | RunnablePassthrough.assign(resposta=RunnablePassthrough() | prompt_final | llm | StrOutputParser())
-        | monta_resposta
+        | monta_resultado
     )
 
     return cadeia.invoke(prompt)
