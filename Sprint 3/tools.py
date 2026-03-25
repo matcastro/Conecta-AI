@@ -1,5 +1,5 @@
 from langchain_core.tools import tool
-from database import listar_especialidades, listar_horarios_disponiveis
+from database import listar_especialidades, listar_horarios_disponiveis, agendar_consulta
 
 
 @tool
@@ -42,7 +42,7 @@ def listar_horarios_disponiveis_tool(
 
     for h in horarios:
         resposta += (
-            f"{h['medico_nome']}: {h['data']} às {h['hora']}\n"
+            f"{h['horario_id']} - {h['medico_nome']}: {h['data']} às {h['hora']}\n"
         )
 
     print("\n\n###")
@@ -50,3 +50,41 @@ def listar_horarios_disponiveis_tool(
     print(resposta)
     print("###\n\n")
     return resposta
+
+@tool
+def agendar_consulta_tool(
+    cpf: str,
+    horario_id: int,
+    observacoes: str | None = None
+) -> str:
+    """
+    Agenda uma consulta para um paciente usando CPF e o ID do horário disponível.
+    """
+
+    resultado = agendar_consulta(cpf, horario_id, observacoes)
+
+    if not resultado["sucesso"]:
+        return resultado["mensagem"]
+
+    agendamento = resultado["agendamento"]
+
+    paciente = agendamento["paciente_nome"]
+    medico = agendamento["medico_nome"]
+    especialidade = agendamento["especialidade"]
+    data = agendamento["data"]
+    hora = agendamento["hora"]
+
+    print("\n\n###")
+    print("Agendar consulta tool resposta:")
+    print(f"Paciente: {paciente}")
+    print(f"Médico: {medico}")
+    print(f"Especialidade: {especialidade}")
+    print(f"Data: {data}")
+    print(f"Hora: {hora}")
+    print("###\n\n")
+
+    return (
+        f"Consulta agendada com sucesso para {paciente} "
+        f"com {medico}, especialidade {especialidade}, "
+        f"no dia {data} às {hora}."
+    )
