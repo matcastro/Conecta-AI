@@ -88,3 +88,28 @@ def agendar_consulta_tool(
         f"com {medico}, especialidade {especialidade}, "
         f"no dia {data} às {hora}."
     )
+
+@tool
+def enviar_email_notificacao_tool(
+    paciente_nome: str,
+    medico_nome: str,
+    especialidade: str,
+    data: str,
+    hora: str
+) -> str:
+    """
+    Simula o envio de um e-mail de notificação ao paciente informando
+    sobre agendamento ou cancelamento de consulta.
+    """
+
+    mensagem = (
+        f"E-mail enviado para {paciente_nome}: "
+        f"Sua consulta com {medico_nome}, especialidade {especialidade}, "
+        f"foi agendada para {data} às {hora}."
+    )
+    
+    # Simulação do envio (log)
+    print("📧 Simulando envio de e-mail...")
+    print(mensagem)
+
+    return mensagem
