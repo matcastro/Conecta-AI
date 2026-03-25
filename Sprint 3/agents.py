@@ -3,7 +3,7 @@ from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
 from dotenv import load_dotenv
 
-from tools import listar_especialidades_tool
+from tools import listar_especialidades_tool, listar_horarios_disponiveis_tool
 
 load_dotenv()
 config = dotenv.dotenv_values()
@@ -16,7 +16,8 @@ llm = ChatOpenAI(
 
 
 tools = [
-    listar_especialidades_tool
+    listar_especialidades_tool,
+    listar_horarios_disponiveis_tool
 ]
 
 

@@ -1,9 +1,15 @@
 from graph import graph
 
-resposta = graph.invoke(
-    {
-        "input": "Quais especialidades a clínica atende?"
-    }
-)
+while True:
+    print("Digite sua mensagem abaixo ou digite sair para fechar o programa.")
+    user_input = input("\nVocê: ")
 
-print(resposta["output"])
+    if user_input.lower() == "sair":
+        break
+
+    result = graph.invoke({
+        "input": user_input
+    })
+
+    print("\nAssistente:")
+    print(result["output"])
